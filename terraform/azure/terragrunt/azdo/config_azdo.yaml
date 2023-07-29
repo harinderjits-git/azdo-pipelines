@@ -4,8 +4,8 @@ global:
     - "eastus"
     - "eastus2"
   azdo_remote_state:
-    rg_name: "pipeline-sa-rg"
-    storage_account: "psaremotestate20230727"
+    rg_name: "pipeline-sa-rg" #replace this value 
+    storage_account: "psaremotestate20230727" #replace this value
     container_name: "azdotfstate"
 subscriptions:
   prod_workloads:
@@ -71,6 +71,14 @@ projects:
         associated_repo: tf-azdo-repo
         variable_group: vg1
         variables:
+          variable1:
+            name: AZDO_PERSONAL_ACCESS_TOKEN
+            equalto: fsmwny3v #replace this value 
+            is_secret: false
+          variable2:
+            name: AZDO_ORG_SERVICE_URL
+            equalto: https://dev.azure.com/<your azdo organization> #replace this value
+            is_secret: false
           variable3:
             name: terragrunt_action
             equalto: apply

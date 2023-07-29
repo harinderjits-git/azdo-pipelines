@@ -71,7 +71,7 @@ stages:
         script: |
           # Write your commands here
           source ../set-env.sh &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
-          terragrunt validate
+          terragrunt run-all validate --terragrunt-non-interactive --terragrunt-working-dir .
         workingDirectory: 'terraform/azure/terragrunt/azdo'
   - job: "terragrunt_plan"
     dependsOn: "terragrunt_init_validate"
@@ -82,8 +82,8 @@ stages:
         targetType: 'inline'
         script: |
           # Write your commands here
-          source ../../set-env.sh  &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
-          terragrunt plan
+          source ../set-env.sh  &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
+          terragrunt run-all plan --terragrunt-non-interactive --terragrunt-working-dir .
         workingDirectory: 'terraform/azure/terragrunt/azdo'
 
 
