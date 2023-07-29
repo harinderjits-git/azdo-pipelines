@@ -1,0 +1,92 @@
+subscriptions:
+  prod_workloads:
+    - id: 153aa06 #replace this value
+      service_tier: prod
+global:
+  tenant_id: 4e0f7 #replace this value
+  publickey: &publickey ssh-rsa AAAAB #replace this value
+  db_password: &common_password Fdg #replace this value 
+  locations:
+    - "eastus"
+    - "eastus2"
+  remote_state:
+    rg_name: "remotestate202070213-rg"
+    storage_account: "remotestate202070213"
+    container_name: "tfstate"
+  name_prefix:
+    - sampleapp
+  tags:
+    SolutionProvider: harinder
+    Solution: sampleapp
+  vaults:
+    vm_secrets:
+      vault_id:
+
+  whitelisted_ips: &whitelistedips
+    - "72.140.51.82"
+  network: &network_config
+    peering:
+    hub_options:
+      allow_virtual_network_access: true
+      allow_forwarded_traffic: true
+      allow_gateway_transit: true
+      use_remote_gateways: false
+    spoke_options:
+      allow_virtual_network_access: true
+      allow_forwarded_traffic: true
+      allow_gateway_transit: false
+      use_remote_gateways: true
+
+prod_workloads:
+  prd:
+    name:
+      - prodprimary
+      - prd
+    tags:
+      env: prodprimary
+      type: demo
+    network: *network_config
+    aks:
+      name: 
+        - aksue
+      rgname: 
+      admin_groups:
+        - AKS_Application_Owner
+      # can be reset - placeholder public SSH key
+      public_ssh_key: *publickey
+      admin_username: aks_admin
+      kubernetes_version: "1.25.6"
+      agent_count: 2
+      aks_agent_vm_size: "Standard_D2_v2" # 8 core / 32GB
+      zones:
+        - "1"
+        - "2"
+        - "3"
+    acr: 
+      name: 
+        - sampleappacr
+      sku: "Standard"
+    mssqlserver:
+      name: dbserver-ue-primary
+      dbs:
+        db1:
+          name: sampleappdb
+          login: appuser
+          user: appuser
+          sku: GP_S_Gen5_2
+        db2:
+          name: sampleappdb2
+          login: appuser
+          user: appuser
+          sku: GP_S_Gen5_2 
+          sample_name: AdventureWorksLT         
+      admin_login: sqladmin
+      admin_password: *common_password
+      dblogins:
+        db1:
+          name: appuser
+          password: *common_password
+      failover_group:
+        name: "sampledb-failover-group"
+    logicapp:
+      name: sqlloginuserconnectorue

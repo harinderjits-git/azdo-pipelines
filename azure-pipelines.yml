@@ -1,0 +1,177 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - master
+
+pool: 'Newlocal'
+
+variables:
+- group: vg1
+
+stages:
+- stage: build_and_test
+  jobs:
+  - job: "Install_prerequsites"
+    steps:
+    - task: Bash@3
+      name: "install_jq_make_pip"
+      inputs:
+        targetType: 'inline'
+        script: |
+          sudo apt-get update -y && sudo apt-get install jq  make  python3-pip python3 -y
+        workingDirectory: 'terraform/azure'
+    - task: Bash@3
+      name: "install_terragrunt"
+      inputs:
+        targetType: 'inline'
+        script: |
+          if [ -f /usr/local/bin/terragrunt ]; then
+          echo "terragrunt is installed"
+          else
+          wget https://github.com/gruntwork-io/terragrunt/releases/download/v0.48.3/terragrunt_linux_amd64
+          mv terragrunt_linux_amd64 terragrunt
+          sudo cp terragrunt /usr/local/bin/
+          fi 
+        workingDirectory: 'terraform/azure'
+    - task: Bash@3
+      name: "install_terraform"
+      inputs:
+        targetType: 'inline'
+        script: |
+          if [ -f /usr/local/bin/terraform ]; then
+          echo "terraform is installed"
+          else
+          wget https://releases.hashicorp.com/terraform/1.5.1/terraform_1.5.1_linux_amd64.zip
+          sudo apt install zip -y && sudo unzip -ov "terraform_*amd64.zip" -d /usr/local/bin/
+          terraform version
+          fi
+        workingDirectory: 'terraform/azure'
+  - job: "terragrunt_init_validate"
+    dependsOn: "Install_prerequsites"
+    steps:
+    - task: Bash@3
+      name: "terragrunt_init_azdo"
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          source ../set-env.sh &&  export AZDO_PERSONAL_ACCESS_TOKEN=$(AZDO_PERSONAL_ACCESS_TOKEN) && export AZDO_ORG_SERVICE_URL=$(AZDO_ORG_SERVICE_URL)
+          terragrunt run-all init --terragrunt-non-interactive --terragrunt-working-dir .
+        workingDirectory: 'terraform/azure/terragrunt/azdo'
+    - task: Bash@3
+      name: "terragrunt_validate_azdo"
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          source ../set-env.sh &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
+          terragrunt validate
+        workingDirectory: 'terraform/azure/terragrunt/azdo'
+  - job: "terragrunt_plan"
+    dependsOn: "terragrunt_init_validate"
+    steps: 
+    - task: Bash@3
+      name: "terragrunt_plan_azdo"
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          source ../../set-env.sh  &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
+          terragrunt plan
+        workingDirectory: 'terraform/azure/terragrunt/azdo'
+
+
+- stage: scan_using_checkov
+  dependsOn: 'build_and_test'
+  jobs:
+  - job: "test_using_checkov"
+    steps:
+    - task: Bash@3
+      name: "install_checkov"
+      inputs:
+        targetType: 'inline'
+        script: |
+          pip3 install checkov
+          checkov --directory `pwd`
+        workingDirectory: 'terraform/azure/modules'
+      continueOnError: true
+
+- stage: start_deploy
+  dependsOn: 'build_and_test'
+  jobs:
+  - deployment: start_deploy_approval
+    displayName: start_deploy_approval  # friendly name to display in the UI
+    environment: 'test-approval-check'  # target environment name and optionally a resource-name to record the deployment history; format: <environment-name>.<resource-name>
+    strategy:  # see deployment strategy schema
+      runOnce:
+        deploy:
+          steps:
+            - script: echo "starting deployment"
+  - job: "Install_prerequsites"
+    dependsOn: 'start_deploy_approval'
+    steps:
+    - task: Bash@3
+      name: "install_jq_make"
+      inputs:
+        targetType: 'inline'
+        script: |
+          sudo apt-get install jq -y && sudo apt-get install make -y
+        workingDirectory: 'terraform/azure'
+    - task: Bash@3
+      name: "install_terragrunt"
+      inputs:
+        targetType: 'inline'
+        script: |
+          if [ -f /usr/local/bin/terragrunt ]; then
+          echo "terragrunt is installed"
+          else
+          wget https://github.com/gruntwork-io/terragrunt/releases/download/v0.48.3/terragrunt_linux_amd64
+          mv terragrunt_linux_amd64 terragrunt
+          sudo cp terragrunt /usr/local/bin/
+          fi 
+        workingDirectory: 'terraform/azure'
+    - task: Bash@3
+      name: "install_terraform"
+      inputs:
+        targetType: 'inline'
+        script: |
+          if [ -f /usr/local/bin/terraform ]; then
+          echo "terraform is installed"
+          else
+          wget https://releases.hashicorp.com/terraform/1.5.1/terraform_1.5.1_linux_amd64.zip
+          sudo apt install zip -y && sudo unzip -ov "terraform_*amd64.zip" -d /usr/local/bin/
+          terraform version
+          fi
+        workingDirectory: 'terraform/azure'
+
+- stage: finalize_depoyment
+  dependsOn: 'start_deploy'
+  jobs:
+  - job: "terragrunt_apply_all"
+    condition: eq(variables.terragrunt_action, 'apply')
+    steps:
+    - task: Bash@3
+      name: "terragrunt_apply_all"
+      inputs:
+        targetType: 'inline'
+        script: |
+          source ./set-env.sh &&  export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
+          make apply-azdo-all
+        workingDirectory: 'terraform/azure/terragrunt'
+  - job: "terragrunt_destroy_all"
+    condition:  eq(variables.terragrunt_action, 'destroy')
+    steps:
+    - task: Bash@3
+      name: "terragrunt_destroy_all"
+      inputs:
+        targetType: 'inline'
+        script: |
+          source ./set-env.sh &&   export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET) && export ARM_CLIENT_ID=$(ARM_CLIENT_ID) && export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID) && export ARM_TENANT_ID=$(ARM_TENANT_ID)
+          make destroy-azdo-all
+        workingDirectory: 'terraform/azure/terragrunt'

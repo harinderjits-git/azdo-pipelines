@@ -1,0 +1,79 @@
+global:
+  tenant_id: 4e0f7 #replace this value
+  locations:
+    - "eastus"
+    - "eastus2"
+  azdo_remote_state:
+    rg_name: "pipeline-sa-rg"
+    storage_account: "psaremotestate20230727"
+    container_name: "azdotfstate"
+subscriptions:
+  prod_workloads:
+    - id: 153aa0 #replace this value
+      service_tier: prod
+projects:
+  project1:
+    name: gitops_project
+    visibility: private
+    agent_pool: Newlocal
+    environments:
+      env1:
+        name: test-approval-check
+    repos:
+      repo1:
+        name: tf-infra-repo
+        init_type: Import
+        imported_from: "https://github.com/harinderjits-git/gitops-azdevops.git" 
+      repo2:
+        name: tf-azdo-repo
+        init_type: Import
+        imported_from: "https://github.com/harinderjits-git/azdo-pipelines.git" 
+    variable_groups:
+      vg1:
+        name: vg1
+        variables:
+          variable4:
+            name: ARM_CLIENT_ID
+            equalto: "e80b53b" #replace this value
+            is_secret: false
+          variable5:
+            name: ARM_CLIENT_SECRET
+            equalto: "aE58Q" #replace this value
+            is_secret: false
+          variable6:
+            name: ARM_TENANT_ID
+            equalto: "4e0f7" #replace this value
+            is_secret: false
+          variable7:
+            name: ARM_SUBSCRIPTION_ID
+            equalto: "153aa" #replace this value
+            is_secret: false
+    pipelines:
+      pipeline1:
+        name: tf-infra-pipeline
+        associated_repo: tf-infra-repo
+        variable_group: vg1
+        variables:
+          variable1:
+            name: local_state_file
+            equalto: false
+            is_secret: false
+          variable2:
+            name: first_iteration
+            equalto: false
+            is_secret: false
+          variable3:
+            name: terragrunt_action
+            equalto: apply
+            is_secret: false
+      pipeline2:
+        name: tf-azdo-pipeline
+        associated_repo: tf-azdo-repo
+        variable_group: vg1
+        variables:
+          variable3:
+            name: terragrunt_action
+            equalto: apply
+            is_secret: false
+
+#local_state_file, first_iteration, terragrunt_action, ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, and ARM_SUBSCRIPTION_ID
